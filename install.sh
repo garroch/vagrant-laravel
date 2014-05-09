@@ -53,4 +53,6 @@ sudo mv composer.phar /usr/local/bin/composer
 
 # Laravel stuff here, if you want
 
+chmod -R 777 /vagrant/app/storage
+
 echo "--- All set to go! Would you like to play a game? ---"
