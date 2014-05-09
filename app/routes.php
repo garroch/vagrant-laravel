@@ -1,68 +1,84 @@
 <?php
 
-//process login requests
-Route::post('login',function() {
-	$userinfo = array(
-			'username' => Input::get('username'),
-			'password' => Input::get('password')
-		);
-
-	if(Auth::attempt($userinfo))
-	{
-		return Redirect::to('admin');
-	}
-	else
-	{
-		return Redirect::to('login') 
-		-> with('login_errors',true);
-	}
+// Index page is a list of all posts
+Route::get(‘/’, function() {
+$posts = Post::with(‘user’)->order_by(‘updated_at’, ‘desc’)->paginate(5);
+return View::make(‘home’)
+->with(‘posts’, $posts);
 });
 
-//process logout requests
-Route::get('logout',function(){
-	Auth::logout();
-	return Redirect::to('/');
+// When a user is logged in he/she is taken to creating new post
+Route::get(‘admin’, array(‘before’ => ‘auth’, ‘do’ => function() {
+$user = Auth::user();
+return View::make(‘new’)->with(‘user’, $user);
+}));
+
+Route::delete(‘post/(:num)’, array(‘before’ => ‘auth’, ‘do’ => function($id){
+$delete_post = Post::with(‘user’)->find($id);
+$delete_post -> delete();
+return Redirect::to(‘/’)
+->with(‘success_message’, true);
+})) ;
+
+// When the new post is submitted we handle that here
+Route::post(‘admin’, array(‘before’ => ‘auth’, ‘do’ => function() {
+
+$new_post = array(
+‘post_title’ => Input::get(‘post_title’),
+‘post_body’ => Input::get(‘post_body’),
+‘post_author’ => Input::get(‘post_author’)
+);
+
+$rules = array(
+‘post_title’ => ‘required|min:3|max:255′,
+‘post_body’ => ‘required|min:10′
+);
+
+$validation = Validator::make($new_post, $rules);
+if ( $validation -> fails() )
+{
+
+return Redirect::to(‘admin’)
+->with(‘user’, Auth::user())
+->with_errors($validation)
+->with_input();
+}
+// create the new post after passing validation
+$post = new Post($new_post);
+$post->save();
+// redirect to viewing all posts
+return Redirect::to(‘/’);
+}));
+
+// Present the user with login form
+Route::get(‘login’, function() {
+return View::make(‘login’);
 });
 
-//show new post page to logged-in user
-Route::get('admin',array('before' => 'auth', 'do' => function(){
-	$user = Auth::user();
-	return View::make('new') -> with('user',$user);
-}));
+// Process the login form
+Route::post(‘login’, function() {
 
-//process a new post, validate for the goodness
-Route::post('admin',array('before' => 'auth','do' => function(){
-	$new_post = array(
-			'post_title' => Input::get('post_title'),
-			'post_body' => Input::get('post_body'),
-			'post_author' => Input::get('post_author')
-		);	
-	
-	$validation = Validator::make($new_post,$rules);
-	if($validation -> fails())
-	{
-		return Redirect::to('admin')
-		->with('user',Auth::user())
-		->with_errors($validation)
-		->with_input();
-	}
+$userinfo = array(
+‘username’ => Input::get(‘username’),
+‘password’ => Input::get(‘password’)
+);
+if ( Auth::attempt($userinfo) )
+{
+return Redirect::to(‘admin’);
+}
+else
+{
+return Redirect::to(‘login’)
+->with(‘login_errors’, true);
+}
+});
 
-	//new post gets created after passing validation
-	$post = new Post($new_post);
-	$post->save();
-	//redirect to page showing all posts
-	return Redirect::to('/');
-}));
+// Process Logout process
+Route::get(‘logout’, function() {
+Auth::logout();
+return Redirect::to(‘/’);
+});
 
-//delete a post
-Route::delete('post/(:num)',array('before' => 'auth', 'do' => function($id){
-	$delete_post = Post::with('user')->find($id);
-	$delete_post -> delete();
-	return Redirect::to('/')
-	->with('success_message',true);
-}));
-
-//copy and paste ftw
 /*
 |————————————————————————–
 | Application 404 & 500 Error Handlers
@@ -135,4 +151,4 @@ Route::filter(‘auth’, function()
 {
 if (Auth::guest()) return Redirect::to(‘login’);
 });
-
+[/sourcecode]
